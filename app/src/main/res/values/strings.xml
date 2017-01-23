@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">TCP Sample</string>
+    <string name="action_settings">Settings</string>
+    <string name="connect">Connect</string>
+    <string name="listen">Start Lisening</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="ok">OK</string>
+    <string name="cancel">CANCEL</string>
+    <string name="client_dialog_title">Connect to:</string>
+    <string name="server_dialog_title">Connect to:</string>
+    <string name="client_disconnect_btn">Disconnect</string>
+    <string name="server_disconnect_btn">Stop</string>
+
+    <!-- Strings related to Settings -->
+
+    <!-- Example General settings -->
+
+    <!-- Example settings for Data & Sync -->
+
+    <!-- Example settings for Notifications -->
+
+    <!-- TODO: Remove or change this placeholder text -->
+
+
+</resources>

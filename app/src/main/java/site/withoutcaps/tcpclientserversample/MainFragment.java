@@ -3,12 +3,10 @@ package site.withoutcaps.tcpclientserversample;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 
 
@@ -16,8 +14,10 @@ public class MainFragment extends Fragment {
 
     private static final String TAG = "MainFragment";
     private static final String BUTTONTXT = "BUTTONTXT";
-    private TextView console;
-    private Button startBtn;
+    private TextView mConsole_txt;
+    private Button mStart_btn;
+
+
     public static MainFragment newInstance(String buttonTxt) {
         MainFragment fragment = new MainFragment();
         Bundle args = new Bundle();
@@ -29,25 +29,16 @@ public class MainFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_main, container, false);
-        console = (TextView) v.findViewById(R.id.console_txt);
-        startBtn = (Button) v.findViewById(R.id.start_btn);
+        mConsole_txt = (TextView) v.findViewById(R.id.console_txt);
+        mStart_btn = (Button) v.findViewById(R.id.start_btn);
         if (getArguments() != null)
-            startBtn.setText(getArguments().getString(BUTTONTXT));
+            mStart_btn.setText(getArguments().getString(BUTTONTXT));
         return v;
     }
 
-    @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
+    public TextView getConsoleTxt() {
+        return mConsole_txt;
     }
 
-    public TextView getConsole() {
-        return console;
-    }
-
-    public Button getStartBtn() {
-        return startBtn;
-    }
 }
 

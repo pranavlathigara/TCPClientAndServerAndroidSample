@@ -1,6 +1,7 @@
 package site.withoutcaps.tcpclientserversample;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -16,7 +17,6 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.view.ViewPager;
 import android.support.v4.widget.DrawerLayout;
-import android.support.v7.app.ActionBar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -35,8 +35,6 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
 
 import site.withoutcaps.tcpclientserversample.TCP.TCPClient;
 import site.withoutcaps.tcpclientserversample.TCP.TCPServer;
@@ -48,18 +46,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final int PAGE_CLIENT = 0;
     private static final int PAGE_SERVER = 1;
 
-    private int currentPage;
-    private DrawerLayout mDrawerLayout;
-    private MainFragment tcpClientFragment;
-    private MainFragment tcpServerFragment;
+    private int mCurrentPage;
+    private DrawerLayout mDrawer_layout;
+    private SharedPreferences mSharedPref;
+    private MainFragment mTcpClient_fragment;
+    private MainFragment mTcpServer_fragment;
 
-    private TCPClient tcpClient;
-    private TCPServer tcpServer;
+    private TCPClient mTcpClient;
+    private TCPServer mTcpServer;
 
-    private EditText messageTxt;
-    private Button clientBtn;
-    private Button serverBtn;
-    private MenuItem disconnectBtn;
+    private EditText mMessage_txt;
+    private Button mClient_btn;
+    private Button mServer_btn;
+    private MenuItem mDisconnect_btn;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,21 +68,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        final ActionBar ab = getSupportActionBar();
-        ab.setHomeAsUpIndicator(R.drawable.ic_menu);
-        ab.setDisplayHomeAsUpEnabled(true);
+//        final ActionBar ab = getSupportActionBar();
+//        ab.setHomeAsUpIndicator(R.drawable.ic_menu);
+//        ab.setDisplayHomeAsUpEnabled(true);
 
-        mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
-        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        //mDrawer_layout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        //NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         ViewPager viewPager = (ViewPager) findViewById(R.id.viewpager);
         TabLayout tabLayout = (TabLayout) findViewById(R.id.tabs);
-        messageTxt = (EditText) findViewById(R.id.message_txt);
+        mMessage_txt = (EditText) findViewById(R.id.message_txt);
 
-        setupDrawerContent(navigationView);
+        //setupDrawerContent(navigationView);
         setupViewPager(viewPager);
         tabLayout.setupWithViewPager(viewPager);
 
         askForPremmisions();
+
+        mSharedPref = getPreferences(Context.MODE_PRIVATE);
 
         viewPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
             @Override
@@ -92,15 +93,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             @Override
             public void onPageSelected(int position) {
-                currentPage = position;
+                mCurrentPage = position;
                 if (position == PAGE_CLIENT) {
-                    updateUI(tcpClient != null ? tcpClient.isConnected() : false);
-                    disconnectBtn.setVisible(tcpClient != null ? tcpClient.isConnected() : false);
-                    disconnectBtn.setTitle(getResources().getString(R.string.client_disconnect_btn));
+                    updateUI(mTcpClient != null ? mTcpClient.isConnected() : false);
+                    mDisconnect_btn.setVisible(mTcpClient != null ? mTcpClient.isConnected() : false);
+                    mDisconnect_btn.setTitle(getResources().getString(R.string.client_disconnect_btn));
                 } else if (position == PAGE_SERVER) {
-                    updateUI(tcpServer != null ? tcpServer.isServerRunning() : false);
-                    disconnectBtn.setVisible(tcpServer != null ? tcpServer.isServerRunning() : false);
-                    disconnectBtn.setTitle(getResources().getString(R.string.server_disconnect_btn));
+                    updateUI(mTcpServer != null ? mTcpServer.isServerRunning() : false);
+                    mDisconnect_btn.setVisible(mTcpServer != null ? mTcpServer.isServerRunning() : false);
+                    mDisconnect_btn.setTitle(getResources().getString(R.string.server_disconnect_btn));
                 }
             }
 
@@ -113,10 +114,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void updateUI(boolean state) {
-        messageTxt.setFocusable(state);
-        messageTxt.setClickable(state);
-        messageTxt.setCursorVisible(state);
-        messageTxt.setFocusableInTouchMode(state);
+        mMessage_txt.setFocusable(state);
+        mMessage_txt.setClickable(state);
+        mMessage_txt.setCursorVisible(state);
+        mMessage_txt.setFocusableInTouchMode(state);
     }
 
     public void click(View view) {
@@ -124,9 +125,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         LayoutInflater inflater = this.getLayoutInflater();
         View v = inflater.inflate(R.layout.dialog, null);
         final EditText ipTxt = (EditText) v.findViewById(R.id.ip_txt);
+        final SharedPreferences.Editor pref_editor = mSharedPref.edit();
 
-        if (currentPage == PAGE_CLIENT) {
-            clientBtn = (Button) view;
+        if (mCurrentPage == PAGE_CLIENT) {
+            mClient_btn = (Button) view;
+            ipTxt.setText(mSharedPref.getString("client_ip",""));
 
             builder.setView(v)
                     .setTitle(getResources().getString(R.string.client_dialog_title))
@@ -134,21 +137,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         @Override
                         public void onClick(DialogInterface dialog, int id) {
                             String address = ipTxt.getText().toString();
+                            pref_editor.putString("client_ip", address);
+                            pref_editor.commit();
                             if (address.contains(".") && address.contains(":"))
                                 new tcpClientThread().execute(address);
                         }
                     })
                     .setNegativeButton(getResources().getString(R.string.cancel), null);
-        } else if (currentPage == PAGE_SERVER) {
-            serverBtn = (Button) view;
+        } else if (mCurrentPage == PAGE_SERVER) {
+            mServer_btn = (Button) view;
             ipTxt.setHint("1024");
+            ipTxt.setText(mSharedPref.getString("server_port",""));
+
             builder.setView(v)
                     .setTitle(getResources().getString(R.string.server_dialog_title))
                     .setPositiveButton(getResources().getString(R.string.ok), new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int id) {
-                            if (ipTxt.getText().toString().length() > 0 && Integer.parseInt(ipTxt.getText().toString()) > 1023)
-                                new tcpServerThread().execute(ipTxt.getText().toString());
+                            String port = ipTxt.getText().toString();
+                            pref_editor.putString("client_ip", port);
+                            pref_editor.commit();
+                            if (port.length() > 0 && Integer.parseInt(port) >= 1024)
+                                new tcpServerThread().execute(port);
                             else
                                 Toast.makeText(getApplicationContext(), "Ports lower then 1024 are not allowed", Toast.LENGTH_LONG).show();
                         }
@@ -160,73 +170,33 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void askForPremmisions() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.INTERNET) != PackageManager.PERMISSION_GRANTED) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.INTERNET)) {
-
-                // Show an explanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-
-            } else {
-
-                // No explanation needed, we can request the permission.
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.INTERNET) != PackageManager.PERMISSION_GRANTED)
+            if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.INTERNET))
                 ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.INTERNET}, PERMISSIONS_REQUEST_INTERNET);
-
-                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
-                // app-defined int constant. The callback method gets the
-                // result of the request.
-            }
-        } else {
-        }
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           String permissions[], int[] grantResults) {
-        switch (requestCode) {
-            case PERMISSIONS_REQUEST_INTERNET: {
-                // If request is cancelled, the result arrays are empty.
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "granted: ");
-
-                    // permission was granted, yay! Do the
-                    // contacts-related task you need to do.
-
-                } else {
-                    Log.d(TAG, "fuck: ");
-
-                    // permission denied, boo! Disable the
-                    // functionality that depends on this permission.
-                }
-                return;
-            }
-
-            // other 'case' lines to check for other
-            // permissions this app might request
-        }
-    }
 
     @Override
     protected void onStop() {
         super.onStop();
-        if (tcpClient != null)
-            tcpClient.stopClient();
-        if (tcpServer != null)
-            tcpServer.closeServer();
+        if (mTcpClient != null)
+            mTcpClient.stopClient();
+        if (mTcpServer != null)
+            mTcpServer.closeServer();
     }
 
     @Override
     public void onClick(View v) {
-        if (currentPage == PAGE_CLIENT) {
-            if (tcpClient.isConnected()) {
-                tcpClient.sendLn(messageTxt.getText().toString());
-                tcpClientFragment.getConsole().append("Client: " + messageTxt.getText().toString() + System.getProperty("line.separator"));
+        if (mCurrentPage == PAGE_CLIENT) {
+            if (mTcpClient.isConnected()) {
+                mTcpClient.sendLn(mMessage_txt.getText().toString());
+                mTcpClient_fragment.getConsoleTxt().append("Client: " + mMessage_txt.getText().toString() + System.getProperty("line.separator"));
             }
-        } else if (currentPage == PAGE_SERVER) {
-            if (tcpServer.isServerRunning()) {
-                tcpServer.broadcastln(messageTxt.getText().toString());
-                tcpServerFragment.getConsole().append("Server: " + messageTxt.getText().toString() + System.getProperty("line.separator"));
-                Log.d(TAG, "Client count: " + tcpServer.getClientsCount());
+        } else if (mCurrentPage == PAGE_SERVER) {
+            if (mTcpServer.isServerRunning()) {
+                mTcpServer.broadcastln(mMessage_txt.getText().toString());
+                mTcpServer_fragment.getConsoleTxt().append("Server: " + mMessage_txt.getText().toString() + System.getProperty("line.separator"));
+                Log.d(TAG, "Client count: " + mTcpServer.getClientsCount());
             }
         }
     }
@@ -234,7 +204,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
-        disconnectBtn = menu.findItem(R.id.action_disconnect);
+        mDisconnect_btn = menu.findItem(R.id.action_disconnect);
         return true;
     }
 
@@ -242,14 +212,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case android.R.id.home:
-                mDrawerLayout.openDrawer(GravityCompat.START);
+                mDrawer_layout.openDrawer(GravityCompat.START);
                 return true;
             case R.id.action_disconnect:
-                if (currentPage == PAGE_CLIENT) {
-                    tcpClient.stopClient();
-                } else if (currentPage == PAGE_SERVER) {
+                if (mCurrentPage == PAGE_CLIENT) {
+                    mTcpClient.stopClient();
+                } else if (mCurrentPage == PAGE_SERVER) {
                     Log.d(TAG, "Closing server");
-                    tcpServer.closeServer();
+                    mTcpServer.closeServer();
                 }
                 return true;
         }
@@ -258,11 +228,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void setupViewPager(ViewPager viewPager) {
         Adapter adapter = new Adapter(getSupportFragmentManager());
-        tcpClientFragment = MainFragment.newInstance(getResources().getString(R.string.connect));
-        tcpServerFragment = MainFragment.newInstance(getResources().getString(R.string.listen));
+        mTcpClient_fragment = MainFragment.newInstance(getResources().getString(R.string.connect));
+        mTcpServer_fragment = MainFragment.newInstance(getResources().getString(R.string.listen));
 
-        adapter.addFragment(tcpClientFragment, "TCP Client");
-        adapter.addFragment(tcpServerFragment, "TCP Server");
+        adapter.addFragment(mTcpClient_fragment, "TCP Client");
+        adapter.addFragment(mTcpServer_fragment, "TCP Server");
 
         viewPager.setAdapter(adapter);
     }
@@ -273,7 +243,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     @Override
                     public boolean onNavigationItemSelected(MenuItem menuItem) {
                         menuItem.setChecked(true);
-                        mDrawerLayout.closeDrawers();
+                        mDrawer_layout.closeDrawers();
                         return true;
                     }
                 });
@@ -284,43 +254,43 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public class UIListenersThread extends AsyncTask<String, String, Void> {
         @Override
         protected Void doInBackground(String... params) {
-            tcpServer = new TCPServer();
-            tcpClient = new TCPClient();
-            tcpServer.setOnServerStartListener(new TCPServer.OnServerStart() {
+            mTcpServer = new TCPServer();
+            mTcpClient = new TCPClient();
+            mTcpServer.setOnServerStartListener(new TCPServer.OnServerStart() {
                 @Override
                 public void serverStarted(int port) {
                     publishProgress("serverStarted");    //I DONT ADVISE TO USE THIS ADVANCED TECNIQUE :)
 
                 }
             });
-            tcpServer.setOnServerClosedListener(new TCPServer.OnServerClose() {
+            mTcpServer.setOnServerClosedListener(new TCPServer.OnServerClose() {
                 @Override
                 public void serverClosed(int port) {
                     publishProgress("serverClosed");    //I DONT ADVISE TO USE THIS ADVANCED TECNIQUE :)
                 }
             });
-            tcpServer.setOnConnectListener(new TCPServer.OnConnect() {
+            mTcpServer.setOnConnectListener(new TCPServer.OnConnect() {
                 @Override
                 public void connected(Socket socket, InetAddress localAddress, int port, SocketAddress localSocketAddress, int clientIndex) {
                     publishProgress("Client " + localAddress + " Connected, Index: " + clientIndex);
                 }
             });
 
-            tcpServer.setOnDisconnectListener(new TCPServer.OnDisconnect() {
+            mTcpServer.setOnDisconnectListener(new TCPServer.OnDisconnect() {
                 @Override
                 public void disconnected(Socket socket, InetAddress localAddress, int port, SocketAddress localSocketAddress, int clientIndex) {
                     publishProgress("Client " + clientIndex + " Disconnected");
 
                 }
             });
-            tcpClient.setOnConnectListener(new TCPClient.OnConnect() {
+            mTcpClient.setOnConnectListener(new TCPClient.OnConnect() {
                 @Override
                 public void connected(Socket socket, String ip, int port) {
                     publishProgress("Connected to: " + ip + ":" + port);
                 }
             });
 
-            tcpClient.setOnDisconnectListener(new TCPClient.OnDisconnect() {
+            mTcpClient.setOnDisconnectListener(new TCPClient.OnDisconnect() {
                 @Override
                 public void disconnected(String ip, int port) {
                     publishProgress("Disconnected: " + ip + ":" + port);
@@ -335,31 +305,33 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             switch (values[0]) {
                 case "serverStarted":
-                    serverBtn.setVisibility(View.INVISIBLE);
-                    disconnectBtn.setVisible(true);
-                    tcpServerFragment.getConsole().append(Html.fromHtml("<font color=#9E9E9E>Server Started" + "</font><br>"));
+                    mServer_btn.setVisibility(View.INVISIBLE);
+                    mDisconnect_btn.setVisible(true);
+                    mTcpServer_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#9E9E9E>Server Started" + "</font><br>"));
                     break;
                 case "serverClosed":
-                    serverBtn.setVisibility(View.VISIBLE);
-                    disconnectBtn.setVisible(false);
-                    tcpServerFragment.getConsole().append(Html.fromHtml("<font color=#9E9E9E>Server Closed" + "</font><br>"));
+                    mServer_btn.setVisibility(View.VISIBLE);
+                    mDisconnect_btn.setVisible(false);
+                    mTcpServer_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#9E9E9E>Server Closed" + "</font><br>"));
                     break;
                 default:
             }
             if (values[0].contains("Client ") && values[0].contains(" Disconnected")) {
-                messageTxt.setFocusableInTouchMode(tcpServer.getClientsCount() > 0);
-                tcpServerFragment.getConsole().append(Html.fromHtml("<font color=#C62828>" + values[0] + "</font><br>"));
+                mMessage_txt.setFocusableInTouchMode(mTcpServer.getClientsCount() > 0);
+                mTcpServer_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#C62828>" + values[0] + "</font><br>"));
             } else if (values[0].contains("Client ") && values[0].contains(" Connected, Index: ")) {
-                messageTxt.setFocusableInTouchMode(true);
-                tcpServerFragment.getConsole().append(Html.fromHtml("<font color=#558B2F>" + values[0] + "</font><br>"));
+                mMessage_txt.setFocusableInTouchMode(true);
+                mTcpServer_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#558B2F>" + values[0] + "</font><br>"));
             } else if (values[0].contains("Disconnected: ")) {
-                clientBtn.setVisibility(View.VISIBLE);
+                mClient_btn.setVisibility(View.VISIBLE);
                 updateUI(false);
-                tcpClientFragment.getConsole().append(Html.fromHtml("<font color=#C62828>" + values[0] + "</font><br>"));
+                mDisconnect_btn.setVisible(false);
+                mTcpClient_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#C62828>" + values[0] + "</font><br>"));
             } else if (values[0].contains("Connected")) {
-                clientBtn.setVisibility(View.INVISIBLE);
+                mClient_btn.setVisibility(View.INVISIBLE);
                 updateUI(true);
-                tcpClientFragment.getConsole().append(Html.fromHtml("<font color=#558B2F>" + values[0] + "</font><br>"));
+                mDisconnect_btn.setVisible(true);
+                mTcpClient_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#558B2F>" + values[0] + "</font><br>"));
             }
         }
     }
@@ -369,14 +341,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         @Override
         protected Void doInBackground(String... port) {
-            tcpServer.setOnMessageReceivedListener(new TCPServer.OnMessageReceived() {
+            mTcpServer.setOnMessageReceivedListener(new TCPServer.OnMessageReceived() {
                 @Override
                 public void messageReceived(String message, int clientIndex) {
                     publishProgress("Client " + clientIndex + ": " + message);
                 }
             });
 
-            tcpServer.startServer(port[0]);
+            mTcpServer.startServer(port[0]);
             return null;
         }
 
@@ -384,13 +356,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         protected void onProgressUpdate(String... values) {
             super.onProgressUpdate(values);
             Log.d(TAG, "onProgressUpdate: " + values[0]);
-            tcpServerFragment.getConsole().append(Html.fromHtml("<font color=#283593>" + values[0] + "</font><br>"));
+            mTcpServer_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#283593>" + values[0] + "</font><br>"));
         }
 
         @Override
         protected void onCancelled() {
             super.onCancelled();
-            serverBtn.setVisibility(View.VISIBLE);
+            mServer_btn.setVisibility(View.VISIBLE);
         }
     }
 
@@ -400,7 +372,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         @Override
         protected Void doInBackground(String... ip) {
-            tcpClient.setOnMessageReceivedListener(new TCPClient.OnMessageReceived() {
+            mTcpClient.setOnMessageReceivedListener(new TCPClient.OnMessageReceived() {
                 @Override
                 public void messageReceived(String message) {
                     publishProgress("Server: " + message);
@@ -409,7 +381,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             try {
                 String[] address = ip[0].split(":");
-                tcpClient.connect(address[0], address[1]);
+                mTcpClient.connect(address[0], address[1]);
             } catch (Exception e) {
             }
             return null;
@@ -418,14 +390,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         @Override
         protected void onProgressUpdate(String... values) {
             super.onProgressUpdate(values);
-            tcpClientFragment.getConsole().append(Html.fromHtml("<font color=#283593>" + values[0] + "</font><br>"));
+            mTcpClient_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#283593>" + values[0] + "</font><br>"));
             Log.d(TAG, values[0]);
         }
 
         @Override
         protected void onCancelled() {
             super.onCancelled();
-            clientBtn.setVisibility(View.VISIBLE);
+            mClient_btn.setVisibility(View.VISIBLE);
         }
     }
 

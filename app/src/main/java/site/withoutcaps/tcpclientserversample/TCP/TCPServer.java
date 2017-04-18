@@ -61,11 +61,11 @@ public class TCPServer {
             e.printStackTrace();
             mRun = false;
         }
-        Log.d(TAG, "startServer: " + (mServerStartListener != null));
+
         if (mServerStartListener != null)
             mServerStartListener.serverStarted(port);
+
         while (mRun) {
-            System.out.println("Accepting client");
             try {
                 socket = serverSocket.accept();
                 Client client = new Client(socket);
@@ -80,13 +80,13 @@ public class TCPServer {
                 break;
             }
         }
+
         if (mServerClosedListener != null)
             mServerClosedListener.serverClosed(port);
     }
 
     public void closeServer() {
         try {
-            Log.d(TAG, "closeServer: ");
             mRun = false;
             serverSocket.close();
             kickAll();
@@ -209,11 +209,8 @@ public class TCPServer {
 
         public void run() {
             while (mRun) {
-                System.out.println("Read line (Client: " + clientIndex + ")");
                 try {
-
                     String line = input.readLine();
-                    System.out.println(line);
                     if (mMessageListener != null)
                         if (line == null) {
                             socket.close();

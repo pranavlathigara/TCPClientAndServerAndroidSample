@@ -14,9 +14,7 @@ import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.view.GravityCompat;
 import android.support.v4.view.ViewPager;
-import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -40,8 +38,8 @@ import site.withoutcaps.tcpclientserversample.TCP.TCPServer;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
-    private static final int PERMISSIONS_REQUEST_INTERNET = 0;
     private static final String TAG = "MainActivity";
+    private static final int PERMISSIONS_REQUEST_INTERNET = 0;
     private static final int CLIENT = 0;
     private static final int SERVER = 1;
 
@@ -58,8 +56,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private EditText mMessage_txt;
     private MenuItem mDisconnect_btn;
-    private DrawerLayout mDrawer_layout;
     private SharedPreferences mSharedPref;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -128,12 +126,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         final SharedPreferences.Editor pref_editor = mSharedPref.edit();
 
         if (mCurrentPage == CLIENT) {
-            if(mCurrentConnectedTCP != -1){
+            if (mCurrentConnectedTCP != -1) {
                 Toast.makeText(getApplicationContext(), R.string.server_on, Toast.LENGTH_LONG).show();
                 return;
             }
-            mCurrentConnectedTCP = CLIENT;
-                mClient_btn = (Button) view;
+            mClient_btn = (Button) view;
             ipTxt.setText(mSharedPref.getString("client_ip", ""));
 
             builder.setView(v)
@@ -145,16 +142,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             pref_editor.putString("client_ip", address);
                             pref_editor.commit();
                             if (address.contains(".") && address.contains(":"))
-                                new tcpClientThread().execute(address);
+                                new TcpClientThread().execute(address);
                         }
                     })
                     .setNegativeButton(getResources().getString(R.string.cancel), null);
         } else if (mCurrentPage == SERVER) {
-            if(mCurrentConnectedTCP != -1){
+            if (mCurrentConnectedTCP != -1) {
                 Toast.makeText(getApplicationContext(), R.string.client_on, Toast.LENGTH_LONG).show();
                 return;
             }
-            mCurrentConnectedTCP = SERVER;
             mServer_btn = (Button) view;
             ipTxt.setHint("1024");
             ipTxt.setText(mSharedPref.getString("server_port", ""));
@@ -168,7 +164,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             pref_editor.putString("server_port", port);
                             pref_editor.commit();
                             if (port.length() > 0 && Integer.parseInt(port) >= 1024)
-                                new tcpServerThread().execute(port);
+                                new TcpServerThread().execute(port);
                             else
                                 Toast.makeText(getApplicationContext(), R.string.low_port, Toast.LENGTH_LONG).show();
                         }
@@ -189,9 +185,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onStop() {
         super.onStop();
-        if (mTcpClient != null)
+        if (mTcpClient != null && mTcpClient.isConnected())
             mTcpClient.stopClient();
-        if (mTcpServer != null)
+        if (mTcpServer != null && mTcpServer.isServerRunning())
             mTcpServer.closeServer();
     }
 
@@ -200,12 +196,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (mCurrentPage == CLIENT) {
             if (mTcpClient.isConnected()) {
                 mTcpClient.sendLn(mMessage_txt.getText().toString());
-                mTcpClient_fragment.getConsoleTxt().append(getString(R.string.client_cons) + mMessage_txt.getText().toString() + System.getProperty("line.separator"));
+                mTcpClient_fragment.getConsoleTxt().append(getString(R.string.client_cons) + " " + mMessage_txt.getText().toString() + System.getProperty("line.separator"));
             }
         } else if (mCurrentPage == SERVER) {
             if (mTcpServer.isServerRunning()) {
                 mTcpServer.broadcastln(mMessage_txt.getText().toString());
-                mTcpServer_fragment.getConsoleTxt().append(getString(R.string.server_cons) + mMessage_txt.getText().toString() + System.getProperty("line.separator"));
+                mTcpServer_fragment.getConsoleTxt().append(getString(R.string.server_cons) + " " + mMessage_txt.getText().toString() + System.getProperty("line.separator"));
             }
         }
     }
@@ -221,7 +217,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case android.R.id.home:
-                mDrawer_layout.openDrawer(GravityCompat.START);
+//                mDrawer_layout.openDrawer(GravityCompat.START);
                 return true;
             case R.id.action_disconnect:
                 if (mCurrentPage == CLIENT)
@@ -251,7 +247,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     @Override
                     public boolean onNavigationItemSelected(MenuItem menuItem) {
                         menuItem.setChecked(true);
-                        mDrawer_layout.closeDrawers();
+//                        mDrawer_layout.closeDrawers();
                         return true;
                     }
                 });
@@ -268,7 +264,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 @Override
                 public void serverStarted(int port) {
                     publishProgress("serverStarted");
-
+                    mCurrentConnectedTCP = SERVER;
                 }
             });
             mTcpServer.setOnServerClosedListener(new TCPServer.OnServerClose() {
@@ -281,14 +277,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             mTcpServer.setOnConnectListener(new TCPServer.OnConnect() {
                 @Override
                 public void connected(Socket socket, InetAddress localAddress, int port, SocketAddress localSocketAddress, int clientIndex) {
-                    publishProgress("Client " + localAddress + " Connected, Index: " + clientIndex);
+                    publishProgress(getString(R.string.client_cons) + localAddress + " Connected, Index: " + clientIndex);
                 }
             });
 
             mTcpServer.setOnDisconnectListener(new TCPServer.OnDisconnect() {
                 @Override
                 public void disconnected(Socket socket, InetAddress localAddress, int port, SocketAddress localSocketAddress, int clientIndex) {
-                    publishProgress("Client " + clientIndex + " Disconnected");
+                    publishProgress(getString(R.string.client_cons) + clientIndex + " Disconnected");
 
                 }
             });
@@ -296,6 +292,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 @Override
                 public void connected(Socket socket, String ip, int port) {
                     publishProgress("Connected to: " + ip + ":" + port);
+                    mCurrentConnectedTCP = CLIENT;
                 }
             });
 
@@ -324,12 +321,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     mDisconnect_btn.setVisible(false);
                     mTcpServer_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#9E9E9E>Server Closed" + "</font><br>"));
                     break;
-                default:
             }
-            if (values[0].contains("Client ") && values[0].contains(" Disconnected")) {
+            if (values[0].contains(getString(R.string.client_cons)) && values[0].contains(" Disconnected")) {
                 mMessage_txt.setFocusableInTouchMode(mTcpServer.getClientsCount() > 0);
                 mTcpServer_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#C62828>" + values[0] + "</font><br>"));
-            } else if (values[0].contains("Client ") && values[0].contains(" Connected, Index: ")) {
+            } else if (values[0].contains(getString(R.string.client_cons)) && values[0].contains(" Connected, Index: ")) {
                 mMessage_txt.setFocusableInTouchMode(true);
                 mTcpServer_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#558B2F>" + values[0] + "</font><br>"));
             } else if (values[0].contains("Disconnected: ")) {
@@ -347,7 +343,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
     //------------------------------------[TCP Server Thread]------------------------------------//
 
-    public class tcpServerThread extends AsyncTask<String, String, Void> {
+    public class TcpServerThread extends AsyncTask<String, String, Void> {
 
         @Override
         protected Void doInBackground(String... port) {
@@ -365,7 +361,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         @Override
         protected void onProgressUpdate(String... values) {
             super.onProgressUpdate(values);
-            mTcpServer_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#283593>" + values[0] + "</font><br>"));
+            mTcpServer_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#283593> " + values[0] + "</font><br>"));
         }
 
         @Override
@@ -377,14 +373,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     //------------------------------------[TCP Client Thread]------------------------------------//
-    public class tcpClientThread extends AsyncTask<String, String, Void> {
+    public class TcpClientThread extends AsyncTask<String, String, Void> {
 
         @Override
         protected Void doInBackground(String... ip) {
             mTcpClient.setOnMessageReceivedListener(new TCPClient.OnMessageReceived() {
                 @Override
                 public void messageReceived(String message) {
-                    publishProgress(getText(R.string.server_cons) + message);
+                    publishProgress(getText(R.string.server_cons) +" " + message);
                 }
             });
             try {
@@ -398,7 +394,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         @Override
         protected void onProgressUpdate(String... values) {
             super.onProgressUpdate(values);
-            mTcpClient_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#283593>" + values[0] + "</font><br>"));
+            mTcpClient_fragment.getConsoleTxt().append(Html.fromHtml("<font color=#283593> " + values[0] + "</font><br>"));
         }
 
         @Override

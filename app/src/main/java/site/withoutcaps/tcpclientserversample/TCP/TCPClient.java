@@ -1,7 +1,13 @@
 package site.withoutcaps.tcpclientserversample.TCP;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
@@ -21,14 +27,16 @@ import java.net.UnknownHostException;
  */
 public class TCPClient {
 
-    private OnMessageReceived mMessageListener = null;
-    private OnConnect mConnectListener = null;
-    private OnDisconnect mDisconnectListener = null;
-    private volatile boolean mRun = false;
-    private PrintWriter out;
-    private BufferedReader in;
+    private OnMessageReceived mMessageListener;
+    private OnConnect mConnectListener;
+    private OnDisconnect mDisconnectListener;
 
-    static Socket socket;
+    private PrintWriter mOut;
+    private BufferedReader mIn;
+
+    private volatile boolean mRun = false;
+    private static final int mConnectionTimeout = 1000;
+    private static Socket mSocket;
 
 
     public void connectInSeperateThread(final String ip, final int port) {
@@ -52,22 +60,23 @@ public class TCPClient {
         mRun = true;
         String serverMessage;
         try {
-            socket = new Socket(InetAddress.getByName(ip), port);
+            mSocket = new Socket();
+            mSocket.connect(new InetSocketAddress(InetAddress.getByName(ip), port), mConnectionTimeout);
             if (mConnectListener != null)
-                mConnectListener.connected(socket, ip, port);
+                mConnectListener.connected(mSocket, ip, port);
 
             try {
-                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
+                mIn = new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
+                mOut = new PrintWriter(new BufferedWriter(new OutputStreamWriter(mSocket.getOutputStream())), true);
                 while (mRun) {
-                    serverMessage = in.readLine();
+                    serverMessage = mIn.readLine();
                     if (serverMessage != null && mMessageListener != null)
                         mMessageListener.messageReceived(serverMessage);
                     if (serverMessage == null)
                         mRun = false;
                 }
             } finally {
-                socket.close();
+                mSocket.close();
                 if (mDisconnectListener != null)
                     mDisconnectListener.disconnected(ip, port);
             }
@@ -81,30 +90,29 @@ public class TCPClient {
     }
 
     public void send(String message) {
-        if (out != null && !out.checkError()) {
-            out.print(message);
-            out.flush();
+        if (mOut != null && !mOut.checkError()) {
+            mOut.print(message);
+            mOut.flush();
         }
     }
 
     public void sendLn(String message) {
-        if (out != null && !out.checkError()) {
-            out.println(message);
-            out.flush();
+        if (mOut != null && !mOut.checkError()) {
+            mOut.println(message);
+            mOut.flush();
         }
     }
 
     public void stopClient() {
         mRun = false;
         try {
-            socket.close();
+            mSocket.close();
         } catch (IOException e) {
-            e.printStackTrace();
         }
     }
 
     public Boolean isConnected() {
-        return socket != null ? socket.isConnected() : false;
+        return mSocket != null ? mSocket.isConnected() : false;
     }
 
 
